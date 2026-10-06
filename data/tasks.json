@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Прокладка проводки",
+    "repair_id": 1,
+    "executor_id": 1,
+    "status": "В работе"
+  },
+  {
+    "id": 2,
+    "name": "Укладка плитки",
+    "repair_id": 1,
+    "executor_id": 2,
+    "status": "Не начато"
+  },
+  {
+    "id": 3,
+    "name": "Покраска потолка",
+    "repair_id": 2,
+    "executor_id": 2,
+    "status": "Готово"
+  }
+]
