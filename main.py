@@ -1,114 +1,159 @@
-from repairs import create_repair, find_repair_by_object, get_repair_summary
-from tasks import assign_task, update_status, filter_tasks_by_status
-from storage import load_data, save_data
+"""Точка входа приложения 'Система планирования ремонта'."""
+
+from models import Executor, Repair, Task
+from models.executors import add_executor, find_executor_by_id
+from models.repairs import (
+    create_repair,
+    find_repair_by_id,
+    find_repair_by_object,
+)
+from models.tasks import (
+    assign_task,
+    filter_tasks_by_status,
+    get_repair_summary,
+    update_task_status,
+)
+from storage import (
+    load_executors,
+    load_repairs,
+    load_tasks,
+    save_executors,
+    save_repairs,
+    save_tasks,
+)
 from utils import input_int
 
 REPAIRS_FILE = "data/repairs.json"
+EXECUTORS_FILE = "data/executors.json"
 TASKS_FILE = "data/tasks.json"
 
 
-def show_repairs(repairs: list[dict]) -> None:
-    """Вывести список всех ремонтов."""
+def show_repairs(repairs: list[Repair]) -> None:
+    """Вывести список ремонтов."""
     if not repairs:
         print("Список ремонтов пуст.")
         return
-    print("\n--- Список объектов и ремонтов ---")
-    for r in repairs:
-        status = "Активен" if r["is_active"] else "Завершен"
-        print(f"ID: {r['id']} | Объект: {r['object_name']} | Площадь: {r['area']} кв.м. | Статус: {status}")
+    print("\n--- Объекты и ремонты ---")
+    for repair in repairs:
+        print(repair)
 
 
-def show_tasks(tasks: list[dict]) -> None:
-    """Вывести список всех задач."""
+def show_executors(executors: list[Executor]) -> None:
+    """Вывести список исполнителей."""
+    if not executors:
+        print("Список исполнителей пуст.")
+        return
+    print("\n--- Исполнители ---")
+    for executor in executors:
+        print(executor)
+
+
+def show_tasks(tasks: list[Task]) -> None:
+    """Вывести список задач."""
     if not tasks:
         print("Список задач пуст.")
         return
-    print("\n--- Список задач ---")
-    for t in tasks:
-        print(f"ID: {t['id']} | Задача: {t['name']} | Исполнитель: {t['executor']} | Ремонт ID: {t['repair_id']} | Статус: {t['status']}")
+    print("\n--- Задачи ---")
+    for task in tasks:
+        print(task)
+
+
+def create_new_task(
+    tasks: list[Task],
+    repairs: list[Repair],
+    executors: list[Executor],
+) -> None:
+    """Сценарий создания задачи с выбором объекта и мастера."""
+    show_repairs(repairs)
+    repair_id = input_int("ID ремонта: ")
+    repair = find_repair_by_id(repairs, repair_id)
+    if repair is None:
+        print("Ошибка: ремонт не найден.")
+        return
+
+    show_executors(executors)
+    executor_id = input_int("ID исполнителя: ")
+    executor = find_executor_by_id(executors, executor_id)
+    if executor is None:
+        print("Ошибка: исполнитель не найден.")
+        return
+
+    task_name = input("Название задачи: ")
+    task = assign_task(tasks, task_name, repair, executor)
+    print(f"Задача создана: {task}")
 
 
 def main() -> None:
-    """Точка запуска приложения."""
-    repairs = load_data(REPAIRS_FILE)
-    tasks = load_data(TASKS_FILE)
+    """Главное меню приложения."""
+    repairs = load_repairs(REPAIRS_FILE)
+    executors = load_executors(EXECUTORS_FILE)
+    tasks = load_tasks(TASKS_FILE, repairs, executors)
 
     while True:
-        print("\n=== СИСТЕМА ПЛАНИРОВАНИЯ РЕМОНТА ===")
-        print("1. Создать ремонт (Добавить объект)")
-        print("2. Назначить задачу исполнителю")
-        print("3. Изменить статус задачи")
-        print("4. Показать все объекты")
-        print("5. Показать все задачи")
-        print("6. Найти объект по названию")
-        print("7. Показать задачи по статусу")
-        print("8. Обзор состояния ремонта")
+        print("\n=== СИСТЕМА ПЛАНИРОВАНИЯ РЕМОНТА (ООП) ===")
+        print("1. Создать ремонт")
+        print("2. Добавить исполнителя")
+        print("3. Назначить задачу")
+        print("4. Изменить статус задачи")
+        print("5. Показать объекты")
+        print("6. Показать исполнителей")
+        print("7. Показать задачи")
+        print("8. Найти объект")
+        print("9. Задачи по статусу")
+        print("10. Обзор состояния")
         print("0. Выход")
 
         choice = input("Выберите действие: ")
 
         if choice == "1":
-            obj_name = input("Введите название объекта (например, Кухня): ")
+            object_name = input("Название объекта: ")
             try:
-                area = float(input("Введите площадь (кв.м.): "))
+                area = float(input("Площадь (кв.м.): "))
             except ValueError:
                 print("Ошибка: площадь должна быть числом.")
                 continue
-            create_repair(repairs, obj_name, area)
-            print(f"Ремонт для объекта '{obj_name}' успешно создан!")
-
+            if not Repair.validate_area(area):
+                print("Ошибка: площадь должна быть больше 0.")
+                continue
+            create_repair(repairs, object_name, area)
+            print("Ремонт создан!")
         elif choice == "2":
-            show_repairs(repairs)
-            repair_id = input_int("Введите ID объекта для назначения задачи: ")
-            task_name = input("Введите название задачи (например, Укладка плитки): ")
-            executor = input("Введите имя исполнителя: ")
-            assign_task(tasks, task_name, executor, repair_id)
-            print(f"Задача '{task_name}' назначена исполнителю {executor}.")
-
+            name = input("Имя исполнителя: ")
+            spec = input("Специализация: ")
+            add_executor(executors, name, spec)
+            print("Исполнитель добавлен!")
         elif choice == "3":
-            show_tasks(tasks)
-            task_id = input_int("Введите ID задачи: ")
-            is_done_str = input("Задача выполнена? (да/нет): ").lower()
-            is_completed = is_done_str in ["да", "yes", "y"]
-            result = update_status(tasks, task_id, is_completed)
-            print(result)
-
+            create_new_task(tasks, repairs, executors)
         elif choice == "4":
-            show_repairs(repairs)
-
-        elif choice == "5":
             show_tasks(tasks)
-
+            task_id = input_int("ID задачи: ")
+            answer = input("Задача выполнена? (да/нет): ")
+            is_done = answer.lower() in ("да", "yes")
+            print(update_task_status(tasks, task_id, is_done))
+        elif choice == "5":
+            show_repairs(repairs)
         elif choice == "6":
-            query = input("Введите часть названия объекта для поиска: ")
-            found = find_repair_by_object(repairs, query)
-            if found:
-                for r in found:
-                    print(f"- {r['object_name']} (ID: {r['id']})")
-            else:
-                print("Ничего не найдено.")
-
+            show_executors(executors)
         elif choice == "7":
-            status = input("Введите статус (Не начато / В работе / Готово): ")
-            filtered = filter_tasks_by_status(tasks, status)
-            if filtered:
-                for t in filtered:
-                    print(f"- {t['name']} (Исполнитель: {t['executor']})")
-            else:
-                print(f"Задач со статусом '{status}' не найдено.")
-
+            show_tasks(tasks)
         elif choice == "8":
-            summary = get_repair_summary(repairs, tasks)
-            print(f"\n{summary}")
-
+            query = input("Поиск: ")
+            for repair in find_repair_by_object(repairs, query):
+                print(repair)
+        elif choice == "9":
+            status = input("Статус (Не начато / В работе / Готово): ")
+            for task in filter_tasks_by_status(tasks, status):
+                print(task)
+        elif choice == "10":
+            print(get_repair_summary(repairs, tasks))
         elif choice == "0":
-            save_data(REPAIRS_FILE, repairs)
-            save_data(TASKS_FILE, tasks)
+            save_repairs(REPAIRS_FILE, repairs)
+            save_executors(EXECUTORS_FILE, executors)
+            save_tasks(TASKS_FILE, tasks)
             print("Данные сохранены. До свидания!")
             break
-
         else:
-            print("Неверный выбор. Попробуйте снова.")
+            print("Неверный выбор.")
 
 
 if __name__ == "__main__":
